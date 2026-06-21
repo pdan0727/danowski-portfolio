@@ -1103,5 +1103,120 @@ tabs.forEach(t=>t.addEventListener('click',()=>{
   cards.forEach(c=>{c.style.display=(f==='all'||c.dataset.cat===f)?'block':'none'});
 }));
 </script>
+
+
+<!-- LIGHTBOX -->
+<div id="lb" role="dialog" aria-modal="true" hidden>
+  <button id="lb-close" aria-label="Close">&times;</button>
+  <button id="lb-prev" aria-label="Previous">&#8592;</button>
+  <button id="lb-next" aria-label="Next">&#8594;</button>
+  <div id="lb-img"></div>
+  <p id="lb-caption"></p>
+  <p id="lb-counter"></p>
+</div>
+<style>
+#lb{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+#lb[hidden]{display:none!important}
+#lb-img{width:88vw;height:82vh;background-size:contain;background-repeat:no-repeat;background-position:center}
+#lb-close{position:fixed;top:18px;right:24px;background:none;border:none;color:#fff;font-size:32px;cursor:pointer;z-index:10001;opacity:.6;line-height:1;transition:opacity .2s}
+#lb-close:hover{opacity:1}
+#lb-prev,#lb-next{position:fixed;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:22px;width:48px;height:48px;cursor:pointer;z-index:10001;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background .2s}
+#lb-prev:hover,#lb-next:hover{background:rgba(255,255,255,.22)}
+#lb-prev{left:18px}#lb-next{right:18px}
+#lb-prev[hidden],#lb-next[hidden]{display:none!important}
+#lb-caption{position:fixed;bottom:44px;left:50%;transform:translateX(-50%);color:#ede8df;font-family:var(--font-body);font-size:.82rem;opacity:.7;white-space:nowrap}
+#lb-counter{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);color:#ede8df;font-family:var(--font-mono);font-size:.7rem;opacity:.45;letter-spacing:.12em}
+.wc-series-badge{position:absolute;top:10px;right:10px;background:rgba(201,168,76,.88);color:#0e0e0c;font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;padding:3px 7px;border-radius:2px;z-index:2;pointer-events:none;text-transform:uppercase}
+</style>
+<script>
+(function(){
+  var groups = {"gilded-signs": {"label": "Reverse Gilded Signs", "members": ["Guinness Reverse Gilded Sign", "Jameson Irish Whiskey Sign", "Bulleit Bourbon Sign — In Situ", "Bulleit Bourbon Sign"]}, "villanova": {"label": "Villanova Athletics", "members": ["Villanova Football — What's Next?", "Villanova Rowing Banner", "Villanova Rowing Wall Mural", "Villanova Athletics Facility Mural", "Villanova Soccer Windscreen"]}, "biz-cards": {"label": "Business Cards", "members": ["ThinkSonic Media Business Card", "A Tale of Two Tails Business Card", "Motorsports Enthusiasts Business Card", "Thumper Products Business Card", "Mark Gullett Business Card"]}, "3d-models": {"label": "3D Models", "members": ["Ferrari 250 GTO", "P-51 Mustang", "'69 Camaro SS"]}, "illustrations": {"label": "Illustrations", "members": ["Mako Shark", "Stevie Ray Vaughan", "Billy Gibbons", "Prince", "Devil Baby", "Phillie Phanatic"]}};
+  var lookup = {};
+  Object.keys(groups).forEach(function(key){
+    var g = groups[key];
+    g.members.forEach(function(m, i){
+      lookup[m] = {group:key, index:i, label:g.label, total:g.members.length};
+    });
+  });
+  var cur = {group:null, index:0};
+  var groupCards = {};
+  Object.keys(groups).forEach(function(k){ groupCards[k]=[]; });
+
+  document.addEventListener('DOMContentLoaded', function(){
+    var lb      = document.getElementById('lb');
+    var lbImg   = document.getElementById('lb-img');
+    var lbCap   = document.getElementById('lb-caption');
+    var lbCount = document.getElementById('lb-counter');
+    var lbClose = document.getElementById('lb-close');
+    var lbPrev  = document.getElementById('lb-prev');
+    var lbNext  = document.getElementById('lb-next');
+
+    document.querySelectorAll('.work-card').forEach(function(card){
+      var lbl  = card.getAttribute('aria-label')||'';
+      var info = lookup[lbl];
+      if(info){
+        card.dataset.group      = info.group;
+        card.dataset.groupIndex = info.index;
+        groupCards[info.group][info.index] = card;
+        if(info.index > 0){
+          card.style.display='none';
+        } else {
+          var t=card.querySelector('.wc-title');
+          if(t) t.textContent=info.label;
+          var b=document.createElement('span');
+          b.className='wc-series-badge';
+          b.textContent=info.total+' images';
+          card.style.position='relative';
+          card.appendChild(b);
+        }
+      }
+    });
+
+    function show(group, idx){
+      cur.group=group; cur.index=idx;
+      var cards=group?groupCards[group]:null;
+      var card=cards?cards[idx]:null;
+      var total=cards?cards.length:1;
+      lbImg.style.backgroundImage=card.querySelector('.wc-inner').style.backgroundImage;
+      lbCap.textContent=card.getAttribute('aria-label')||'';
+      lbCount.textContent=total>1?(idx+1)+' / '+total:'';
+      lbPrev.hidden=!group||idx===0;
+      lbNext.hidden=!group||idx===total-1;
+      lb.hidden=false;
+      document.body.style.overflow='hidden';
+    }
+
+    function hide(){ lb.hidden=true; document.body.style.overflow=''; }
+
+    document.querySelectorAll('.work-card').forEach(function(card){
+      card.addEventListener('click',function(e){
+        e.preventDefault();
+        var g=card.dataset.group;
+        var i=parseInt(card.dataset.groupIndex||'0');
+        if(g){ show(g,i); }
+        else{
+          cur.group=null;
+          lbImg.style.backgroundImage=card.querySelector('.wc-inner').style.backgroundImage;
+          lbCap.textContent=card.getAttribute('aria-label')||'';
+          lbCount.textContent='';
+          lbPrev.hidden=true; lbNext.hidden=true;
+          lb.hidden=false; document.body.style.overflow='hidden';
+        }
+      });
+    });
+
+    lbClose.addEventListener('click',hide);
+    lb.addEventListener('click',function(e){ if(e.target===lb) hide(); });
+    lbPrev.addEventListener('click',function(e){ e.stopPropagation(); show(cur.group,cur.index-1); });
+    lbNext.addEventListener('click',function(e){ e.stopPropagation(); show(cur.group,cur.index+1); });
+    document.addEventListener('keydown',function(e){
+      if(lb.hidden) return;
+      if(e.key==='Escape') hide();
+      if(e.key==='ArrowLeft' && cur.group && cur.index>0) show(cur.group,cur.index-1);
+      if(e.key==='ArrowRight' && cur.group && cur.index<groupCards[cur.group].length-1) show(cur.group,cur.index+1);
+    });
+  });
+})();
+</script>
 </body>
 </html>
